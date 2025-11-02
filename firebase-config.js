@@ -1,0 +1,18 @@
+// firebase-config.js
+// Firebase configuration - Compat version
+const firebaseConfig = {
+  apiKey: "AIzaSyDFg_r0_TDCX1A1rhG8JrshZqK2iA3MvIw",
+  authDomain: "studyplanner-firebase.firebaseapp.com",
+  projectId: "studyplanner-firebase",
+  storageBucket: "studyplanner-firebase.firebasestorage.app",
+  messagingSenderId: "1099409491095",
+  appId: "1:1099409491095:web:3b2986b83853413686d5d2",
+  measurementId: "G-ZNM1SGNC5S"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+
+// Initialize services
+const auth = firebase.auth();
+const db = firebase.firestore();
