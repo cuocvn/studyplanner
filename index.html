@@ -1,87 +1,334 @@
-<!doctype html>
-<html lang="vi">
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>StudyPlanner — Lên kế hoạch ôn thi thông minh</title>
-  <meta name="description" content="StudyPlanner: nhập môn, ngày thi, độ khó → tự chia lịch ôn tập. Lưu đám mây, đăng nhập Google, xuất PDF, responsive." />
-  <meta name="keywords" content="ôn thi, planner, lịch học, study planner, ôn tập, sinh viên" />
-  <link rel="icon" href="assets/favicon.png" />
-  <link rel="stylesheet" href="styles.css" />
-  <!-- jsPDF (for export) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-
-  <!-- Firebase SDKs (compat) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-  <!-- Adsense: thêm đoạn code AdSense của anh vào đây khi approved -->
-  <!-- <script data-ad-client="ca-pub-XXXXXXXXXXXX" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script> -->
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyPlanner Pro - Lên kế hoạch học tập thông minh</title>
+    <meta name="description" content="StudyPlanner Pro - Ứng dụng lên kế hoạch học tập thông minh với AI, tự động sắp xếp lịch học và xuất PDF">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <h1>StudyPlanner</h1>
-    <div class="auth" id="auth-area">
-      <button id="btn-google">Đăng nhập bằng Google</button>
-      <button id="btn-logout" class="hidden">Đăng xuất</button>
-    </div>
-  </header>
-
-  <main class="container">
-    <section class="panel panel-left">
-      <h2>Thêm môn học</h2>
-      <form id="subject-form" autocomplete="off">
-        <label>Tên môn
-          <input id="subject-name" required placeholder="Ví dụ: Toán" />
-        </label>
-        <label>Ngày thi
-          <input id="subject-date" type="date" required />
-        </label>
-        <label>Độ khó
-          <select id="subject-difficulty">
-            <option value="1">Dễ</option>
-            <option value="2" selected>Trung bình</option>
-            <option value="3">Khó</option>
-          </select>
-        </label>
-        <label>Ghi chú (tùy chọn)
-          <input id="subject-note" placeholder="Chủ đề cần ôn, chương..." />
-        </label>
-        <div class="row">
-          <button type="submit">+ Thêm môn</button>
-          <button id="generate-plan" type="button">🪄 Tạo kế hoạch ôn tập</button>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loader">
+            <div class="book">
+                <div class="inner">
+                    <div class="left"></div>
+                    <div class="middle"></div>
+                    <div class="right"></div>
+                </div>
+                <ul>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                </ul>
+            </div>
+            <p>Đang tải StudyPlanner Pro...</p>
         </div>
-      </form>
+    </div>
 
-      <h3>Danh sách môn</h3>
-      <ul id="subject-list" class="list"></ul>
-      <div class="small">
-        <button id="clear-all">Xóa tất cả</button>
-      </div>
-    </section>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                <h1>StudyPlanner <span class="pro-badge">Pro</span></h1>
+            </div>
+            <nav class="nav">
+                <button class="nav-btn active" data-target="dashboard">
+                    <i class="fas fa-home"></i>
+                    <span>Trang chủ</span>
+                </button>
+                <button class="nav-btn" data-target="profile">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </button>
+                <button class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <div class="auth-section" id="auth-section">
+                    <button id="btn-google" class="btn-google">
+                        <i class="fab fa-google"></i>
+                        <span>Đăng nhập</span>
+                    </button>
+                    <div id="user-info" class="user-info hidden">
+                        <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
+                        <span id="user-name" class="user-name"></span>
+                        <button id="btn-logout" class="btn-logout">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
 
-    <section class="panel panel-right">
-      <h2>Kế hoạch ôn tập</h2>
-      <div id="plan-area">
-        <ol id="plan-list" class="plan-list"></ol>
-      </div>
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active">
+                <div class="hero">
+                    <div class="hero-content">
+                        <h2 class="hero-title">Lên Kế Hoạch Học Tập Thông Minh</h2>
+                        <p class="hero-subtitle">Tự động sắp xếp lịch học, theo dõi tiến độ và đạt kết quả tốt nhất</p>
+                        <div class="hero-stats">
+                            <div class="stat">
+                                <i class="fas fa-book"></i>
+                                <span id="total-subjects">0</span>
+                                <small>Môn học</small>
+                            </div>
+                            <div class="stat">
+                                <i class="fas fa-calendar"></i>
+                                <span id="total-days">0</span>
+                                <small>Ngày học</small>
+                            </div>
+                            <div class="stat">
+                                <i class="fas fa-chart-line"></i>
+                                <span id="completion-rate">0%</span>
+                                <small>Hoàn thành</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hero-animation">
+                        <div class="floating-elements">
+                            <div class="floating-element element-1">📚</div>
+                            <div class="floating-element element-2">✏️</div>
+                            <div class="floating-element element-3">🎯</div>
+                            <div class="floating-element element-4">⭐</div>
+                        </div>
+                    </div>
+                </div>
 
-      <div class="row actions">
-        <button id="export-pdf">⬇️ Xuất PDF</button>
-        <button id="save-cloud">💾 Lưu lên cloud</button>
-      </div>
+                <div class="content-grid">
+                    <!-- Add Subject Panel -->
+                    <div class="panel add-subject-panel">
+                        <div class="panel-header">
+                            <i class="fas fa-plus-circle"></i>
+                            <h3>Thêm Môn Học Mới</h3>
+                        </div>
+                        <form id="subject-form" class="subject-form">
+                            <div class="form-group">
+                                <label for="subject-name">
+                                    <i class="fas fa-book"></i>
+                                    Tên môn học
+                                </label>
+                                <input type="text" id="subject-name" required placeholder="Ví dụ: Toán cao cấp">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="subject-date">
+                                    <i class="fas fa-calendar"></i>
+                                    Ngày thi
+                                </label>
+                                <input type="date" id="subject-date" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="subject-difficulty">
+                                    <i class="fas fa-signal"></i>
+                                    Độ khó
+                                </label>
+                                <div class="difficulty-buttons">
+                                    <button type="button" class="difficulty-btn" data-level="1">
+                                        <i class="fas fa-smile"></i>
+                                        Dễ
+                                    </button>
+                                    <button type="button" class="difficulty-btn active" data-level="2">
+                                        <i class="fas fa-meh"></i>
+                                        Trung bình
+                                    </button>
+                                    <button type="button" class="difficulty-btn" data-level="3">
+                                        <i class="fas fa-frown"></i>
+                                        Khó
+                                    </button>
+                                </div>
+                                <input type="hidden" id="subject-difficulty" value="2">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="subject-note">
+                                    <i class="fas fa-sticky-note"></i>
+                                    Ghi chú (tùy chọn)
+                                </label>
+                                <textarea id="subject-note" placeholder="Chủ đề cần ôn, chương quan trọng..."></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn-primary btn-add-subject">
+                                <i class="fas fa-plus"></i>
+                                Thêm Môn Học
+                            </button>
+                        </form>
+                    </div>
 
-      <p class="hint">Không đăng nhập? Dữ liệu vẫn lưu cục bộ (LocalStorage).</p>
-    </section>
-  </main>
+                    <!-- Subjects List -->
+                    <div class="panel subjects-panel">
+                        <div class="panel-header">
+                            <i class="fas fa-list"></i>
+                            <h3>Danh Sách Môn Học</h3>
+                            <span class="badge" id="subjects-count">0</span>
+                        </div>
+                        <div class="subjects-list" id="subjects-list">
+                            <div class="empty-state">
+                                <i class="fas fa-book-open"></i>
+                                <p>Chưa có môn học nào</p>
+                                <small>Thêm môn học để bắt đầu lên kế hoạch</small>
+                            </div>
+                        </div>
+                        <div class="panel-actions">
+                            <button id="generate-plan" class="btn-primary btn-generate">
+                                <i class="fas fa-magic"></i>
+                                Tạo Kế Hoạch Ôn Tập
+                            </button>
+                            <button id="clear-all" class="btn-secondary">
+                                <i class="fas fa-trash"></i>
+                                Xóa Tất Cả
+                            </button>
+                        </div>
+                    </div>
 
-  <footer class="footer">
-    <small>© StudyPlanner · Tối ưu mobile & SEO · Free deploy</small>
-  </footer>
+                    <!-- Study Plan -->
+                    <div class="panel plan-panel">
+                        <div class="panel-header">
+                            <i class="fas fa-calendar-alt"></i>
+                            <h3>Kế Hoạch Ôn Tập</h3>
+                        </div>
+                        <div class="plan-content">
+                            <div class="empty-state" id="empty-plan">
+                                <i class="fas fa-calendar-plus"></i>
+                                <p>Chưa có kế hoạch nào</p>
+                                <small>Tạo kế hoạch để xem lịch học chi tiết</small>
+                            </div>
+                            <div id="plan-list" class="plan-list"></div>
+                        </div>
+                        <div class="panel-actions">
+                            <button id="export-pdf" class="btn-primary">
+                                <i class="fas fa-file-pdf"></i>
+                                Xuất PDF
+                            </button>
+                            <button id="save-cloud" class="btn-secondary">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                Lưu Lên Cloud
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-<script src="firebase-config.js"></script>
-<script src="app.js"></script>
+            <!-- Profile Section -->
+            <section id="profile" class="section">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <div class="profile-info">
+                        <h2>StudyPlanner Pro</h2>
+                        <p>Ứng dụng lên kế hoạch học tập thông minh</p>
+                    </div>
+                </div>
+
+                <div class="profile-content">
+                    <div class="profile-card">
+                        <h3><i class="fas fa-info-circle"></i> Thông Tin Admin</h3>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <i class="fas fa-user"></i>
+                                <div>
+                                    <strong>Tên:</strong>
+                                    <span>Nguyễn Văn Cước</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-birthday-cake"></i>
+                                <div>
+                                    <strong>Năm sinh:</strong>
+                                    <span>2004</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-envelope"></i>
+                                <div>
+                                    <strong>Email:</strong>
+                                    <span>cuoc2004@gmail.com</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-card">
+                        <h3><i class="fas fa-share-alt"></i> Liên Kết Mạng Xã Hội</h3>
+                        <div class="social-links">
+                            <a href="https://facebook.com" target="_blank" class="social-link facebook">
+                                <i class="fab fa-facebook"></i>
+                                <span>Facebook</span>
+                            </a>
+                            <a href="https://tiktok.com" target="_blank" class="social-link tiktok">
+                                <i class="fab fa-tiktok"></i>
+                                <span>TikTok</span>
+                            </a>
+                            <a href="https://github.com" target="_blank" class="social-link github">
+                                <i class="fab fa-github"></i>
+                                <span>GitHub</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="profile-card">
+                        <h3><i class="fas fa-chart-bar"></i> Thống Kê Học Tập</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <i class="fas fa-book primary"></i>
+                                <div class="stat-info">
+                                    <span class="stat-number" id="profile-total-subjects">0</span>
+                                    <span class="stat-label">Tổng môn học</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <i class="fas fa-check-circle success"></i>
+                                <div class="stat-info">
+                                    <span class="stat-number" id="profile-completed">0</span>
+                                    <span class="stat-label">Đã hoàn thành</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <i class="fas fa-clock warning"></i>
+                                <div class="stat-info">
+                                    <span class="stat-number" id="profile-pending">0</span>
+                                    <span class="stat-label">Đang học</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Confetti Effect -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Scripts -->
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
