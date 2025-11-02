@@ -282,322 +282,359 @@ class StudyPlanner {
 
         countElement.textContent = this.subjects.length;
     }
-renderStudyPlan() {
-    const container = document.getElementById('plan-list');
-    const emptyPlan = document.getElementById('empty-plan');
 
-    console.log('Render study plan - currentPlan:', this.currentPlan);
-
-    // Kiểm tra dữ liệu hợp lệ
-    if (!this.currentPlan || !Array.isArray(this.currentPlan) || this.currentPlan.length === 0) {
-        console.log('Không có kế hoạch để hiển thị');
-        container.style.display = 'none';
-        emptyPlan.style.display = 'block';
-        return;
-    }
-
-    emptyPlan.style.display = 'none';
-    container.style.display = 'block';
-
-    container.innerHTML = this.currentPlan.map(dayPlan => {
-        // Kiểm tra dữ liệu ngày học
-        if (!dayPlan || !dayPlan.date || !Array.isArray(dayPlan.subjects)) {
-            console.log('Dữ liệu dayPlan không hợp lệ:', dayPlan);
-            return '';
-        }
-
-        return `
-            <div class="plan-day">
-                <div class="plan-date">
-                    <i class="fas fa-calendar-day"></i>
-                    ${this.formatDate(dayPlan.date)} - ${this.getDayName(dayPlan.date)}
-                </div>
-                <div class="plan-subjects">
-                    ${dayPlan.subjects.map(subject => {
-                        // Kiểm tra dữ liệu môn học
-                        if (!subject || !subject.name) {
-                            console.log('Dữ liệu subject không hợp lệ:', subject);
-                            return '';
-                        }
-                        
-                        const firstChar = subject.name && subject.name.charAt ? 
-                            subject.name.charAt(0).toUpperCase() : '?';
-                        
-                        return `
-                            <div class="plan-subject difficulty-${subject.difficulty || 2}">
-                                <div class="subject-icon">
-                                    ${firstChar}
-                                </div>
-                                <div class="plan-subject-info">
-                                    <div class="plan-subject-name">${subject.name || 'Không xác định'}</div>
-                                    ${subject.note ? `<div class="plan-subject-note">${subject.note}</div>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// Sửa lại hàm createStudyPlan để đảm bảo dữ liệu đúng
-createStudyPlan(subjects) {
-    console.log('Tạo kế hoạch từ subjects:', subjects);
-    
-    const plan = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    console.log('Ngày bắt đầu:', today);
-
-    // Kiểm tra và sắp xếp môn học theo ngày thi
-    const validSubjects = subjects.filter(subject => {
-        if (!subject || !subject.name || !subject.date) {
-            console.log('Bỏ qua subject không hợp lệ:', subject);
-            return false;
-        }
-        
-        const examDate = new Date(subject.date);
-        return examDate >= today;
-    });
-
-    if (validSubjects.length === 0) {
-        console.log('Không có môn học nào có ngày thi hợp lệ');
-        return [];
-    }
-
-    // Tính số ngày học cần thiết cho mỗi môn
-    const subjectRequirements = validSubjects.map(subject => {
-        const daysNeeded = (subject.difficulty || 2) * 2; // Mặc định là trung bình
-        return {
-            id: subject.id || Date.now() + Math.random(),
-            name: subject.name || 'Không xác định',
-            date: subject.date,
-            difficulty: subject.difficulty || 2,
-            note: subject.note || '',
-            daysNeeded,
-            daysAssigned: 0,
-            dueDate: new Date(subject.date)
-        };
-    });
-
-    // Tìm ngày thi xa nhất
-    const latestDate = new Date(Math.max(...validSubjects.map(s => new Date(s.date).getTime())));
-    console.log('Ngày thi cuối cùng:', latestDate);
-
-    // Tạo danh sách ngày học (chỉ thứ 2-6)
-    const studyDays = [];
-    const currentDate = new Date(today);
-    
-    while (currentDate <= latestDate) {
-        const dayOfWeek = currentDate.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Không thứ 7, CN
-            studyDays.push(new Date(currentDate));
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    console.log('Tổng số ngày học:', studyDays.length);
-
-    if (studyDays.length === 0) {
-        console.log('Không có ngày học nào trong khoảng thời gian này');
-        return [];
-    }
-
-    // Phân bổ môn học vào các ngày
-    let dayIndex = 0;
-    let totalAssignments = subjectRequirements.reduce((sum, subj) => sum + subj.daysNeeded, 0);
-    
-    console.log('Tổng số buổi học cần phân bổ:', totalAssignments);
-
-    // Thuật toán phân bổ đơn giản
-    while (dayIndex < Math.min(studyDays.length, totalAssignments)) {
-        const currentDay = studyDays[dayIndex];
-        
-        // Tìm môn học cần được học vào ngày này
-        for (const subjectReq of subjectRequirements) {
-            if (subjectReq.daysAssigned < subjectReq.daysNeeded && 
-                currentDay < subjectReq.dueDate) {
-                
-                plan.push({
-                    date: new Date(currentDay),
-                    subject: subjectReq.name,
-                    difficulty: subjectReq.difficulty,
-                    note: subjectReq.note || `Buổi ${subjectReq.daysAssigned + 1}`
-                });
-                
-                subjectReq.daysAssigned++;
-                break;
-            }
-        }
-        
-        dayIndex++;
-    }
-
-    console.log('Kế hoạch chi tiết sau khi phân bổ:', plan);
-
-    // Nhóm theo ngày
-    const groupedPlan = [];
-    const planByDate = {};
-
-    plan.forEach(item => {
-        if (!item || !item.date) {
-            console.log('Bỏ qua item không hợp lệ:', item);
+    generateStudyPlan() {
+        if (this.subjects.length === 0) {
+            this.showNotification('Vui lòng thêm ít nhất một môn học!', 'error');
             return;
         }
+
+        console.log('Bắt đầu tạo kế hoạch với', this.subjects.length, 'môn học');
         
-        const dateKey = item.date.toDateString();
-        if (!planByDate[dateKey]) {
-            planByDate[dateKey] = {
-                date: new Date(item.date),
-                subjects: []
-            };
-        }
-        planByDate[dateKey].subjects.push(item);
-    });
-
-    // Chuyển thành mảng và sắp xếp
-    for (const dateKey in planByDate) {
-        groupedPlan.push(planByDate[dateKey]);
-    }
-
-    groupedPlan.sort((a, b) => a.date - b.date);
-
-    console.log('Kế hoạch đã nhóm:', groupedPlan);
-    return groupedPlan;
-}
-
-// Sửa hàm loadSavedData để xử lý dữ liệu hỏng
-loadSavedData() {
-    // Load theme
-    const savedTheme = localStorage.getItem('studyplanner-theme');
-    if (savedTheme) {
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        const icon = document.querySelector('.theme-toggle i');
-        icon.className = savedTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
-    }
-
-    // Load subjects và plan với kiểm tra lỗi
-    try {
-        const savedSubjects = localStorage.getItem('studyplanner-subjects');
-        const savedPlan = localStorage.getItem('studyplanner-plan');
+        this.currentPlan = this.createStudyPlan(this.subjects);
+        console.log('Kế hoạch đã tạo:', this.currentPlan);
         
-        if (savedSubjects) {
-            const parsedSubjects = JSON.parse(savedSubjects);
-            // Lọc chỉ các subject hợp lệ
-            this.subjects = Array.isArray(parsedSubjects) ? 
-                parsedSubjects.filter(subj => subj && subj.name && subj.date) : [];
-        }
-        
-        if (savedPlan) {
-            const parsedPlan = JSON.parse(savedPlan);
-            // Lọc chỉ các plan hợp lệ
-            this.currentPlan = Array.isArray(parsedPlan) ? 
-                parsedPlan.filter(day => day && day.date && Array.isArray(day.subjects)) : [];
-        }
-        
-        this.renderSubjects();
         this.renderStudyPlan();
         this.updateStats();
-    } catch (error) {
-        console.error('Lỗi khi tải dữ liệu:', error);
-        // Reset dữ liệu nếu có lỗi
-        this.subjects = [];
-        this.currentPlan = [];
-        localStorage.removeItem('studyplanner-subjects');
-        localStorage.removeItem('studyplanner-plan');
-    }
-}
-
-// Thêm hàm lấy tên thứ trong tuần
-getDayName(date) {
-    const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-    return days[new Date(date).getDay()];
-}
-    exportToPDF() {
-    if (this.currentPlan.length === 0) {
-        this.showNotification('Vui lòng tạo kế hoạch trước khi xuất PDF!', 'error');
-        return;
-    }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // Thêm font hỗ trợ tiếng Việt
-    doc.setLanguage('vi-VN');
-    
-    // Header với màu đẹp
-    doc.setFillColor(99, 102, 241);
-    doc.rect(0, 0, 210, 30, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('STUDYPLANNER PRO - KẾ HOẠCH ÔN TẬP', 105, 15, { align: 'center' });
-    
-    // Thông tin học sinh
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Học sinh: ${this.user ? this.user.displayName : 'Khách'}`, 20, 45);
-    doc.text(`Ngày xuất: ${this.formatDate(new Date())}`, 20, 55);
-    
-    // Tiêu đề kế hoạch
-    let yPosition = 75;
-    doc.setFontSize(16);
-    doc.setTextColor(99, 102, 241);
-    doc.setFont('helvetica', 'bold');
-    doc.text('KẾ HOẠCH ÔN TẬP CHI TIẾT', 20, yPosition);
-    
-    // Nội dung kế hoạch
-    yPosition += 15;
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
-    
-    this.currentPlan.forEach(dayPlan => {
-        if (yPosition > 250) {
-            doc.addPage();
-            yPosition = 20;
+        
+        if (this.currentPlan.length > 0) {
+            this.showNotification('Đã tạo kế hoạch ôn tập thành công!', 'success');
+            this.showConfetti();
+        } else {
+            this.showNotification('Không thể tạo kế hoạch. Kiểm tra ngày thi!', 'error');
         }
+    }
+
+    createStudyPlan(subjects) {
+        console.log('Tạo kế hoạch từ subjects:', subjects);
         
-        // Ngày học
+        const plan = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        console.log('Ngày bắt đầu:', today);
+
+        // Kiểm tra và sắp xếp môn học theo ngày thi
+        const validSubjects = subjects.filter(subject => {
+            if (!subject || !subject.name || !subject.date) {
+                console.log('Bỏ qua subject không hợp lệ:', subject);
+                return false;
+            }
+            
+            const examDate = new Date(subject.date);
+            return examDate >= today;
+        });
+
+        if (validSubjects.length === 0) {
+            console.log('Không có môn học nào có ngày thi hợp lệ');
+            return [];
+        }
+
+        // Tính số ngày học cần thiết cho mỗi môn
+        const subjectRequirements = validSubjects.map(subject => {
+            const daysNeeded = (subject.difficulty || 2) * 2; // Mặc định là trung bình
+            return {
+                id: subject.id || Date.now() + Math.random(),
+                name: subject.name || 'Không xác định',
+                date: subject.date,
+                difficulty: subject.difficulty || 2,
+                note: subject.note || '',
+                daysNeeded,
+                daysAssigned: 0,
+                dueDate: new Date(subject.date)
+            };
+        });
+
+        // Tìm ngày thi xa nhất
+        const latestDate = new Date(Math.max(...validSubjects.map(s => new Date(s.date).getTime())));
+        console.log('Ngày thi cuối cùng:', latestDate);
+
+        // Tạo danh sách ngày học (chỉ thứ 2-6)
+        const studyDays = [];
+        const currentDate = new Date(today);
+        
+        while (currentDate <= latestDate) {
+            const dayOfWeek = currentDate.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Không thứ 7, CN
+                studyDays.push(new Date(currentDate));
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        console.log('Tổng số ngày học:', studyDays.length);
+
+        if (studyDays.length === 0) {
+            console.log('Không có ngày học nào trong khoảng thời gian này');
+            return [];
+        }
+
+        // Phân bổ môn học vào các ngày
+        let dayIndex = 0;
+        let totalAssignments = subjectRequirements.reduce((sum, subj) => sum + subj.daysNeeded, 0);
+        
+        console.log('Tổng số buổi học cần phân bổ:', totalAssignments);
+
+        // Thuật toán phân bổ đơn giản
+        while (dayIndex < Math.min(studyDays.length, totalAssignments)) {
+            const currentDay = studyDays[dayIndex];
+            
+            // Tìm môn học cần được học vào ngày này
+            for (const subjectReq of subjectRequirements) {
+                if (subjectReq.daysAssigned < subjectReq.daysNeeded && 
+                    currentDay < subjectReq.dueDate) {
+                    
+                    plan.push({
+                        date: new Date(currentDay),
+                        subject: subjectReq.name,
+                        difficulty: subjectReq.difficulty,
+                        note: subjectReq.note || `Buổi ${subjectReq.daysAssigned + 1}`
+                    });
+                    
+                    subjectReq.daysAssigned++;
+                    break;
+                }
+            }
+            
+            dayIndex++;
+        }
+
+        console.log('Kế hoạch chi tiết sau khi phân bổ:', plan);
+
+        // Nhóm theo ngày
+        const groupedPlan = [];
+        const planByDate = {};
+
+        plan.forEach(item => {
+            if (!item || !item.date) {
+                console.log('Bỏ qua item không hợp lệ:', item);
+                return;
+            }
+            
+            const dateKey = item.date.toDateString();
+            if (!planByDate[dateKey]) {
+                planByDate[dateKey] = {
+                    date: new Date(item.date),
+                    subjects: []
+                };
+            }
+            planByDate[dateKey].subjects.push(item);
+        });
+
+        // Chuyển thành mảng và sắp xếp
+        for (const dateKey in planByDate) {
+            groupedPlan.push(planByDate[dateKey]);
+        }
+
+        groupedPlan.sort((a, b) => a.date - b.date);
+
+        console.log('Kế hoạch đã nhóm:', groupedPlan);
+        return groupedPlan;
+    }
+
+    renderStudyPlan() {
+        const container = document.getElementById('plan-list');
+        const emptyPlan = document.getElementById('empty-plan');
+
+        console.log('=== RENDER STUDY PLAN DEBUG ===');
+        console.log('currentPlan:', this.currentPlan);
+        console.log('Type of currentPlan:', typeof this.currentPlan);
+        console.log('Is array:', Array.isArray(this.currentPlan));
+
+        // KIỂM TRA DỮ LIỆU KỸ HƠN
+        if (!this.currentPlan || !Array.isArray(this.currentPlan)) {
+            console.log('currentPlan không phải array hoặc không tồn tại');
+            this.currentPlan = [];
+        }
+
+        if (this.currentPlan.length === 0) {
+            console.log('Không có kế hoạch để hiển thị');
+            container.style.display = 'none';
+            emptyPlan.style.display = 'block';
+            return;
+        }
+
+        console.log('Số ngày trong kế hoạch:', this.currentPlan.length);
+
+        emptyPlan.style.display = 'none';
+        container.style.display = 'block';
+
+        // XÂY DỰNG HTML AN TOÀN
+        let htmlContent = '';
+        
+        for (let i = 0; i < this.currentPlan.length; i++) {
+            const dayPlan = this.currentPlan[i];
+            
+            // KIỂM TRA DỮ LIỆU NGÀY
+            if (!dayPlan || !dayPlan.date) {
+                console.log('Bỏ qua dayPlan không hợp lệ tại index', i, ':', dayPlan);
+                continue;
+            }
+
+            // KIỂM TRA SUBJECTS
+            if (!dayPlan.subjects || !Array.isArray(dayPlan.subjects)) {
+                console.log('Bỏ qua dayPlan không có subjects tại index', i, ':', dayPlan);
+                continue;
+            }
+
+            // TẠO HTML CHO NGÀY
+            let dayHtml = `
+                <div class="plan-day">
+                    <div class="plan-date">
+                        <i class="fas fa-calendar-day"></i>
+                        ${this.formatDate(dayPlan.date)}
+                    </div>
+                    <div class="plan-subjects">
+            `;
+
+            // THÊM CÁC MÔN HỌC TRONG NGÀY
+            for (let j = 0; j < dayPlan.subjects.length; j++) {
+                const subject = dayPlan.subjects[j];
+                
+                // KIỂM TRA DỮ LIỆU MÔN HỌC
+                if (!subject || !subject.name) {
+                    console.log('Bỏ qua subject không hợp lệ tại index', j, ':', subject);
+                    continue;
+                }
+
+                // XỬ LÝ KÝ TỰ ĐẦU AN TOÀN
+                let firstChar = '?';
+                try {
+                    if (subject.name && typeof subject.name.charAt === 'function') {
+                        firstChar = subject.name.charAt(0).toUpperCase();
+                    }
+                } catch (error) {
+                    console.log('Lỗi khi xử lý ký tự đầu:', error);
+                    firstChar = '?';
+                }
+
+                // ĐẢM BẢO ĐỘ KHÓ HỢP LỆ
+                const difficulty = subject.difficulty && [1, 2, 3].includes(subject.difficulty) 
+                    ? subject.difficulty 
+                    : 2;
+
+                dayHtml += `
+                    <div class="plan-subject difficulty-${difficulty}">
+                        <div class="subject-icon">
+                            ${firstChar}
+                        </div>
+                        <div class="plan-subject-info">
+                            <div class="plan-subject-name">${this.escapeHtml(subject.name)}</div>
+                            ${subject.note ? `<div class="plan-subject-note">${this.escapeHtml(subject.note)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            dayHtml += `
+                    </div>
+                </div>
+            `;
+
+            htmlContent += dayHtml;
+        }
+
+        // HIỂN THỊ KẾT QUẢ
+        if (htmlContent === '') {
+            console.log('Không có nội dung hợp lệ để hiển thị');
+            container.style.display = 'none';
+            emptyPlan.style.display = 'block';
+        } else {
+            container.innerHTML = htmlContent;
+            console.log('Đã hiển thị kế hoạch thành công');
+        }
+    }
+
+    // THÊM HÀM ESCAPE HTML ĐỂ AN TOÀN
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    exportToPDF() {
+        if (!this.currentPlan || this.currentPlan.length === 0) {
+            this.showNotification('Vui lòng tạo kế hoạch trước khi xuất PDF!', 'error');
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Thêm font hỗ trợ tiếng Việt
+        doc.setLanguage('vi-VN');
+        
+        // Header với màu đẹp
+        doc.setFillColor(99, 102, 241);
+        doc.rect(0, 0, 210, 30, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20);
         doc.setFont('helvetica', 'bold');
-        doc.text(`${this.formatDate(dayPlan.date)}:`, 20, yPosition);
-        yPosition += 7;
+        doc.text('STUDYPLANNER PRO - KẾ HOẠCH ÔN TẬP', 105, 15, { align: 'center' });
         
-        // Các môn học trong ngày
-        dayPlan.subjects.forEach(subject => {
-            if (yPosition > 270) {
+        // Thông tin học sinh
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Học sinh: ${this.user ? this.user.displayName : 'Khách'}`, 20, 45);
+        doc.text(`Ngày xuất: ${this.formatDate(new Date())}`, 20, 55);
+        
+        // Tiêu đề kế hoạch
+        let yPosition = 75;
+        doc.setFontSize(16);
+        doc.setTextColor(99, 102, 241);
+        doc.setFont('helvetica', 'bold');
+        doc.text('KẾ HOẠCH ÔN TẬP CHI TIẾT', 20, yPosition);
+        
+        // Nội dung kế hoạch
+        yPosition += 15;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        
+        this.currentPlan.forEach(dayPlan => {
+            if (yPosition > 250) {
                 doc.addPage();
                 yPosition = 20;
             }
             
-            doc.setFont('helvetica', 'normal');
-            const subjectText = `• ${subject.name} ${subject.note ? `- ${subject.note}` : ''}`;
+            // Ngày học
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${this.formatDate(dayPlan.date)}:`, 20, yPosition);
+            yPosition += 7;
             
-            // Xử lý text dài
-            const lines = doc.splitTextToSize(subjectText, 170);
-            lines.forEach(line => {
-                doc.text(line, 25, yPosition);
-                yPosition += 5;
+            // Các môn học trong ngày
+            dayPlan.subjects.forEach(subject => {
+                if (yPosition > 270) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                
+                doc.setFont('helvetica', 'normal');
+                const subjectText = `• ${subject.name} ${subject.note ? `- ${subject.note}` : ''}`;
+                
+                // Xử lý text dài
+                const lines = doc.splitTextToSize(subjectText, 170);
+                lines.forEach(line => {
+                    doc.text(line, 25, yPosition);
+                    yPosition += 5;
+                });
             });
+            
+            yPosition += 5;
         });
         
-        yPosition += 5;
-    });
-    
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(128, 128, 128);
-    doc.setFont('helvetica', 'italic');
-    doc.text('Generated by StudyPlanner Pro - studyplanner-firebase.web.app', 105, 290, { align: 'center' });
-    
-    // Lưu file
-    const fileName = `studyplanner-plan-${this.formatDate(new Date(), 'file')}.pdf`;
-    doc.save(fileName);
-    this.showNotification('Đã xuất PDF thành công!', 'success');
-}
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.setFont('helvetica', 'italic');
+        doc.text('Generated by StudyPlanner Pro - studyplanner-firebase.web.app', 105, 290, { align: 'center' });
+        
+        // Lưu file
+        const fileName = `studyplanner-plan-${this.formatDate(new Date(), 'file')}.pdf`;
+        doc.save(fileName);
+        this.showNotification('Đã xuất PDF thành công!', 'success');
+    }
 
     async saveToCloud() {
         if (!this.user) {
@@ -722,27 +759,79 @@ getDayName(date) {
         if (savedTheme) {
             document.documentElement.setAttribute('data-theme', savedTheme);
             const icon = document.querySelector('.theme-toggle i');
-            icon.className = savedTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            if (icon) {
+                icon.className = savedTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            }
         }
 
-        // Load subjects and plan
+        // Load subjects và plan với XỬ LÝ LỖI KỸ HƠN
         try {
             const savedSubjects = localStorage.getItem('studyplanner-subjects');
             const savedPlan = localStorage.getItem('studyplanner-plan');
             
+            console.log('=== LOAD SAVED DATA DEBUG ===');
+            console.log('savedSubjects:', savedSubjects);
+            console.log('savedPlan:', savedPlan);
+
+            // XỬ LÝ SUBJECTS
             if (savedSubjects) {
-                this.subjects = JSON.parse(savedSubjects);
+                try {
+                    const parsedSubjects = JSON.parse(savedSubjects);
+                    this.subjects = Array.isArray(parsedSubjects) ? 
+                        parsedSubjects.filter(subj => 
+                            subj && 
+                            typeof subj === 'object' && 
+                            subj.name && 
+                            typeof subj.name === 'string' &&
+                            subj.date
+                        ) : [];
+                    console.log('Subjects sau khi lọc:', this.subjects);
+                } catch (error) {
+                    console.error('Lỗi parse subjects:', error);
+                    this.subjects = [];
+                }
+            } else {
+                this.subjects = [];
             }
-            
+
+            // XỬ LÝ PLAN
             if (savedPlan) {
-                this.currentPlan = JSON.parse(savedPlan);
+                try {
+                    const parsedPlan = JSON.parse(savedPlan);
+                    this.currentPlan = Array.isArray(parsedPlan) ? 
+                        parsedPlan.filter(day => 
+                            day && 
+                            typeof day === 'object' &&
+                            day.date &&
+                            day.subjects && 
+                            Array.isArray(day.subjects)
+                        ) : [];
+                    console.log('Plan sau khi lọc:', this.currentPlan);
+                } catch (error) {
+                    console.error('Lỗi parse plan:', error);
+                    this.currentPlan = [];
+                }
+            } else {
+                this.currentPlan = [];
             }
             
             this.renderSubjects();
             this.renderStudyPlan();
             this.updateStats();
         } catch (error) {
-            console.error('Lỗi khi tải dữ liệu:', error);
+            console.error('Lỗi nghiêm trọng khi tải dữ liệu:', error);
+            // RESET HOÀN TOÀN
+            this.subjects = [];
+            this.currentPlan = [];
+            try {
+                localStorage.removeItem('studyplanner-subjects');
+                localStorage.removeItem('studyplanner-plan');
+            } catch (e) {
+                console.error('Lỗi khi xóa localStorage:', e);
+            }
+            this.renderSubjects();
+            this.renderStudyPlan();
+            this.updateStats();
         }
     }
 
