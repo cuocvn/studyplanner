@@ -18,9 +18,9 @@ if (typeof firebase === 'undefined') {
   // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
 
-  // Initialize services
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+  // Initialize services - ĐẶT VÀO WINDOW ĐỂ APP.JS THẤY
+  window.auth = firebase.auth();
+  window.db = firebase.firestore();
   
   console.log('Firebase initialized successfully!');
 }
