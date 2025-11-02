@@ -283,222 +283,266 @@ class StudyPlanner {
         countElement.textContent = this.subjects.length;
     }
 
-    generateStudyPlan() {
-        if (this.subjects.length === 0) {
-            this.showNotification('Vui lòng thêm ít nhất một môn học!', 'error');
-            return;
-        }
+generateStudyPlan() {
+    if (this.subjects.length === 0) {
+        this.showNotification('Vui lòng thêm ít nhất một môn học!', 'error');
+        return;
+    }
 
-        console.log('Bắt đầu tạo kế hoạch với', this.subjects.length, 'môn học');
-        
-        this.currentPlan = this.createStudyPlan(this.subjects);
-        console.log('Kế hoạch đã tạo:', this.currentPlan);
-        
-        this.renderStudyPlan();
-        this.updateStats();
-        
+    console.log('Bắt đầu tạo kế hoạch với', this.subjects.length, 'môn học');
+    
+    this.currentPlan = this.createStudyPlan(this.subjects);
+    console.log('Kế hoạch đã tạo:', this.currentPlan);
+    
+    this.renderStudyPlan();
+    this.updateStats();
+    
+    if (this.currentPlan.length > 0) {
         this.showNotification('Đã tạo kế hoạch ôn tập thành công!', 'success');
         this.showConfetti();
+    } else {
+        this.showNotification('Không thể tạo kế hoạch. Kiểm tra ngày thi!', 'error');
+    }
+}
+
+createStudyPlan(subjects) {
+    console.log('Tạo kế hoạch từ subjects:', subjects);
+    
+    const plan = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    console.log('Ngày bắt đầu:', today);
+
+    // Kiểm tra và sắp xếp môn học theo ngày thi
+    const validSubjects = subjects.filter(subject => {
+        const examDate = new Date(subject.date);
+        return examDate >= today;
+    });
+
+    if (validSubjects.length === 0) {
+        console.log('Không có môn học nào có ngày thi hợp lệ');
+        return [];
     }
 
-    createStudyPlan(subjects) {
-        const plan = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        console.log('Ngày bắt đầu:', today);
+    // Tính số ngày học cần thiết cho mỗi môn
+    const subjectRequirements = validSubjects.map(subject => {
+        const daysNeeded = subject.difficulty * 2; // Dễ: 2 ngày, TB: 4 ngày, Khó: 6 ngày
+        return {
+            ...subject,
+            daysNeeded,
+            daysAssigned: 0,
+            dueDate: new Date(subject.date)
+        };
+    });
 
-        // Calculate study days needed for each subject
-        const subjectRequirements = subjects.map(subject => {
-            const daysNeeded = subject.difficulty * 2; // Dễ: 2 ngày, TB: 4 ngày, Khó: 6 ngày
-            return {
-                ...subject,
-                daysNeeded,
-                daysAssigned: 0,
-                dueDate: new Date(subject.date)
+    // Tìm ngày thi xa nhất
+    const latestDate = new Date(Math.max(...validSubjects.map(s => new Date(s.date).getTime())));
+    console.log('Ngày thi cuối cùng:', latestDate);
+
+    // Tạo danh sách ngày học (chỉ thứ 2-6)
+    const studyDays = [];
+    const currentDate = new Date(today);
+    
+    while (currentDate <= latestDate) {
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Không thứ 7, CN
+            studyDays.push(new Date(currentDate));
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    console.log('Tổng số ngày học:', studyDays.length);
+
+    if (studyDays.length === 0) {
+        console.log('Không có ngày học nào trong khoảng thời gian này');
+        return [];
+    }
+
+    // Phân bổ môn học vào các ngày
+    let dayIndex = 0;
+    let totalAssignments = subjectRequirements.reduce((sum, subj) => sum + subj.daysNeeded, 0);
+    
+    console.log('Tổng số buổi học cần phân bổ:', totalAssignments);
+
+    // Thuật toán phân bổ đơn giản
+    while (dayIndex < Math.min(studyDays.length, totalAssignments)) {
+        const currentDay = studyDays[dayIndex];
+        
+        // Tìm môn học cần được học vào ngày này
+        for (const subjectReq of subjectRequirements) {
+            if (subjectReq.daysAssigned < subjectReq.daysNeeded && 
+                currentDay < subjectReq.dueDate) {
+                
+                plan.push({
+                    date: new Date(currentDay),
+                    subject: subjectReq.name,
+                    difficulty: subjectReq.difficulty,
+                    note: subjectReq.note || `Buổi ${subjectReq.daysAssigned + 1}`
+                });
+                
+                subjectReq.daysAssigned++;
+                break;
+            }
+        }
+        
+        dayIndex++;
+    }
+
+    console.log('Kế hoạch chi tiết sau khi phân bổ:', plan);
+
+    // Nhóm theo ngày
+    const groupedPlan = [];
+    const planByDate = {};
+
+    plan.forEach(item => {
+        const dateKey = item.date.toDateString();
+        if (!planByDate[dateKey]) {
+            planByDate[dateKey] = {
+                date: new Date(item.date),
+                subjects: []
             };
-        });
-
-        // Find the latest exam date
-        const latestDate = new Date(Math.max(...subjects.map(s => new Date(s.date).getTime())));
-        console.log('Ngày thi cuối cùng:', latestDate);
-
-        // Generate all study days from today to latest date
-        const studyDays = [];
-        const currentDate = new Date(today);
-        
-        while (currentDate <= latestDate) {
-            // Only include weekdays (Monday to Friday)
-            if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-                studyDays.push(new Date(currentDate));
-            }
-            currentDate.setDate(currentDate.getDate() + 1);
         }
+        planByDate[dateKey].subjects.push(item);
+    });
 
-        console.log('Tổng số ngày học:', studyDays.length);
-
-        // Simple assignment algorithm
-        let dayIndex = 0;
-        const maxStudyDays = studyDays.length;
-
-        // Assign subjects to days
-        while (dayIndex < maxStudyDays) {
-            // Find subjects that still need study days
-            const availableSubjects = subjectRequirements.filter(subj => 
-                subj.daysAssigned < subj.daysNeeded
-            );
-
-            if (availableSubjects.length === 0) break;
-
-            // Sort by priority: subjects with closer due dates and more remaining days first
-            availableSubjects.sort((a, b) => {
-                // Priority 1: Subjects with closer due dates
-                const timeDiffA = a.dueDate - studyDays[dayIndex];
-                const timeDiffB = b.dueDate - studyDays[dayIndex];
-                
-                // Priority 2: Subjects with more remaining days
-                const remainingA = a.daysNeeded - a.daysAssigned;
-                const remainingB = b.daysNeeded - b.daysAssigned;
-                
-                return timeDiffA - timeDiffB || remainingB - remainingA;
-            });
-
-            const selectedSubject = availableSubjects[0];
-            
-            plan.push({
-                date: new Date(studyDays[dayIndex]),
-                subject: selectedSubject.name,
-                difficulty: selectedSubject.difficulty,
-                note: selectedSubject.note || `Buổi ${selectedSubject.daysAssigned + 1}`
-            });
-            
-            selectedSubject.daysAssigned++;
-            dayIndex++;
-        }
-
-        console.log('Kế hoạch chi tiết:', plan);
-
-        // Group by date
-        const groupedPlan = [];
-        const planByDate = {};
-
-        plan.forEach(item => {
-            const dateKey = item.date.toDateString();
-            if (!planByDate[dateKey]) {
-                planByDate[dateKey] = {
-                    date: new Date(item.date),
-                    subjects: []
-                };
-            }
-            planByDate[dateKey].subjects.push(item);
-        });
-
-        // Convert to array and sort by date
-        for (const dateKey in planByDate) {
-            groupedPlan.push(planByDate[dateKey]);
-        }
-
-        groupedPlan.sort((a, b) => a.date - b.date);
-
-        console.log('Kế hoạch đã nhóm:', groupedPlan);
-        return groupedPlan;
+    // Chuyển thành mảng và sắp xếp
+    for (const dateKey in planByDate) {
+        groupedPlan.push(planByDate[dateKey]);
     }
 
-    renderStudyPlan() {
-        const container = document.getElementById('plan-list');
-        const emptyPlan = document.getElementById('empty-plan');
+    groupedPlan.sort((a, b) => a.date - b.date);
 
-        if (this.currentPlan.length === 0) {
-            container.style.display = 'none';
-            emptyPlan.style.display = 'block';
-            return;
-        }
+    console.log('Kế hoạch đã nhóm:', groupedPlan);
+    return groupedPlan;
+}
 
-        emptyPlan.style.display = 'none';
-        container.style.display = 'block';
+renderStudyPlan() {
+    const container = document.getElementById('plan-list');
+    const emptyPlan = document.getElementById('empty-plan');
 
-        container.innerHTML = this.currentPlan.map(dayPlan => `
-            <div class="plan-day">
-                <div class="plan-date">
-                    <i class="fas fa-calendar-day"></i>
-                    ${this.formatDate(dayPlan.date)}
-                </div>
-                <div class="plan-subjects">
-                    ${dayPlan.subjects.map(subject => `
-                        <div class="plan-subject difficulty-${subject.difficulty}">
-                            <div class="subject-icon">
-                                ${subject.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div class="plan-subject-info">
-                                <div class="plan-subject-name">${subject.name}</div>
-                                ${subject.note ? `<div class="plan-subject-note">${subject.note}</div>` : ''}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
+    console.log('Render study plan:', this.currentPlan);
+
+    if (!this.currentPlan || this.currentPlan.length === 0) {
+        container.style.display = 'none';
+        emptyPlan.style.display = 'block';
+        return;
+    }
+
+    emptyPlan.style.display = 'none';
+    container.style.display = 'block';
+
+    container.innerHTML = this.currentPlan.map(dayPlan => `
+        <div class="plan-day">
+            <div class="plan-date">
+                <i class="fas fa-calendar-day"></i>
+                ${this.formatDate(dayPlan.date)} - ${this.getDayName(dayPlan.date)}
             </div>
-        `).join('');
+            <div class="plan-subjects">
+                ${dayPlan.subjects.map(subject => `
+                    <div class="plan-subject difficulty-${subject.difficulty}">
+                        <div class="subject-icon">
+                            ${subject.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="plan-subject-info">
+                            <div class="plan-subject-name">${subject.name}</div>
+                            ${subject.note ? `<div class="plan-subject-note">${subject.note}</div>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+}
+
+// Thêm hàm lấy tên thứ trong tuần
+getDayName(date) {
+    const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+    return days[new Date(date).getDay()];
+}
+    exportToPDF() {
+    if (this.currentPlan.length === 0) {
+        this.showNotification('Vui lòng tạo kế hoạch trước khi xuất PDF!', 'error');
+        return;
     }
 
-    exportToPDF() {
-        if (this.currentPlan.length === 0) {
-            this.showNotification('Vui lòng tạo kế hoạch trước khi xuất PDF!', 'error');
-            return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Thêm font hỗ trợ tiếng Việt
+    doc.setLanguage('vi-VN');
+    
+    // Header với màu đẹp
+    doc.setFillColor(99, 102, 241);
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('STUDYPLANNER PRO - KẾ HOẠCH ÔN TẬP', 105, 15, { align: 'center' });
+    
+    // Thông tin học sinh
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Học sinh: ${this.user ? this.user.displayName : 'Khách'}`, 20, 45);
+    doc.text(`Ngày xuất: ${this.formatDate(new Date())}`, 20, 55);
+    
+    // Tiêu đề kế hoạch
+    let yPosition = 75;
+    doc.setFontSize(16);
+    doc.setTextColor(99, 102, 241);
+    doc.setFont('helvetica', 'bold');
+    doc.text('KẾ HOẠCH ÔN TẬP CHI TIẾT', 20, yPosition);
+    
+    // Nội dung kế hoạch
+    yPosition += 15;
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    
+    this.currentPlan.forEach(dayPlan => {
+        if (yPosition > 250) {
+            doc.addPage();
+            yPosition = 20;
         }
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
         
-        // Header
-        doc.setFillColor(99, 102, 241);
-        doc.rect(0, 0, 210, 30, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(20);
-        doc.text('StudyPlanner Pro - Kế Hoạch Ôn Tập', 105, 15, { align: 'center' });
+        // Ngày học
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${this.formatDate(dayPlan.date)}:`, 20, yPosition);
+        yPosition += 7;
         
-        // Student info
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        doc.text(`Học sinh: ${this.user ? this.user.displayName : 'Khách'}`, 20, 45);
-        doc.text(`Ngày xuất: ${this.formatDate(new Date())}`, 20, 55);
-        
-        // Study plan
-        let yPosition = 75;
-        doc.setFontSize(16);
-        doc.setTextColor(99, 102, 241);
-        doc.text('KẾ HOẠCH ÔN TẬP CHI TIẾT', 20, yPosition);
-        
-        yPosition += 15;
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        
-        this.currentPlan.forEach(dayPlan => {
-            if (yPosition > 250) {
+        // Các môn học trong ngày
+        dayPlan.subjects.forEach(subject => {
+            if (yPosition > 270) {
                 doc.addPage();
                 yPosition = 20;
             }
             
-            doc.setFont(undefined, 'bold');
-            doc.text(`${this.formatDate(dayPlan.date)}:`, 20, yPosition);
-            yPosition += 7;
+            doc.setFont('helvetica', 'normal');
+            const subjectText = `• ${subject.name} ${subject.note ? `- ${subject.note}` : ''}`;
             
-            dayPlan.subjects.forEach(subject => {
-                doc.setFont(undefined, 'normal');
-                doc.text(`• ${subject.name} ${subject.note ? `- ${subject.note}` : ''}`, 25, yPosition);
+            // Xử lý text dài
+            const lines = doc.splitTextToSize(subjectText, 170);
+            lines.forEach(line => {
+                doc.text(line, 25, yPosition);
                 yPosition += 5;
             });
-            
-            yPosition += 5;
         });
         
-        // Footer
-        doc.setFontSize(8);
-        doc.setTextColor(128, 128, 128);
-        doc.text('Generated by StudyPlanner Pro - studyplanner-firebase.web.app', 105, 290, { align: 'center' });
-        
-        doc.save(`studyplanner-plan-${this.formatDate(new Date(), 'file')}.pdf`);
-        this.showNotification('Đã xuất PDF thành công!', 'success');
-    }
+        yPosition += 5;
+    });
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(128, 128, 128);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Generated by StudyPlanner Pro - studyplanner-firebase.web.app', 105, 290, { align: 'center' });
+    
+    // Lưu file
+    const fileName = `studyplanner-plan-${this.formatDate(new Date(), 'file')}.pdf`;
+    doc.save(fileName);
+    this.showNotification('Đã xuất PDF thành công!', 'success');
+}
 
     async saveToCloud() {
         if (!this.user) {
