@@ -1,4 +1,6 @@
 // app.js
+// Thêm ở đầu file app.js
+console.log("App.js loaded - Firebase ready:", !!firebase.apps.length);
 // Main logic: manage subjects, create plan, save to Firestore, export PDF, auth Google
 const subjectForm = document.getElementById('subject-form');
 const nameInput = document.getElementById('subject-name');
