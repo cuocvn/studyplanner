@@ -314,15 +314,24 @@ class StudyPlanner {
         
         console.log('Ngày bắt đầu:', today);
 
-        // Kiểm tra và sắp xếp môn học theo ngày thi
+        // Kiểm tra và sắp xếp môn học theo ngày thi - FIX DATE
         const validSubjects = subjects.filter(subject => {
             if (!subject || !subject.name || !subject.date) {
                 console.log('Bỏ qua subject không hợp lệ:', subject);
                 return false;
             }
             
-            const examDate = new Date(subject.date);
-            return examDate >= today;
+            try {
+                const examDate = new Date(subject.date);
+                if (isNaN(examDate.getTime())) {
+                    console.log('Ngày thi không hợp lệ:', subject.date);
+                    return false;
+                }
+                return examDate >= today;
+            } catch (error) {
+                console.log('Lỗi xử lý ngày thi:', error);
+                return false;
+            }
         });
 
         if (validSubjects.length === 0) {
@@ -332,7 +341,7 @@ class StudyPlanner {
 
         // Tính số ngày học cần thiết cho mỗi môn
         const subjectRequirements = validSubjects.map(subject => {
-            const daysNeeded = (subject.difficulty || 2) * 2; // Mặc định là trung bình
+            const daysNeeded = (subject.difficulty || 2) * 2;
             return {
                 id: subject.id || Date.now() + Math.random(),
                 name: subject.name || 'Không xác định',
@@ -345,8 +354,17 @@ class StudyPlanner {
             };
         });
 
-        // Tìm ngày thi xa nhất
-        const latestDate = new Date(Math.max(...validSubjects.map(s => new Date(s.date).getTime())));
+        // Tìm ngày thi xa nhất - FIX DATE
+        let latestDate = new Date();
+        try {
+            const validDates = validSubjects.map(s => new Date(s.date).getTime()).filter(time => !isNaN(time));
+            if (validDates.length > 0) {
+                latestDate = new Date(Math.max(...validDates));
+            }
+        } catch (error) {
+            console.log('Lỗi tìm ngày thi cuối cùng:', error);
+        }
+
         console.log('Ngày thi cuối cùng:', latestDate);
 
         // Tạo danh sách ngày học (chỉ thứ 2-6)
@@ -355,7 +373,7 @@ class StudyPlanner {
         
         while (currentDate <= latestDate) {
             const dayOfWeek = currentDate.getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Không thứ 7, CN
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
                 studyDays.push(new Date(currentDate));
             }
             currentDate.setDate(currentDate.getDate() + 1);
@@ -400,7 +418,7 @@ class StudyPlanner {
 
         console.log('Kế hoạch chi tiết sau khi phân bổ:', plan);
 
-        // Nhóm theo ngày
+        // Nhóm theo ngày - FIX DATE TRONG GROUPING
         const groupedPlan = [];
         const planByDate = {};
 
@@ -410,14 +428,23 @@ class StudyPlanner {
                 return;
             }
             
-            const dateKey = item.date.toDateString();
-            if (!planByDate[dateKey]) {
-                planByDate[dateKey] = {
-                    date: new Date(item.date),
-                    subjects: []
-                };
+            try {
+                const dateKey = item.date.toDateString();
+                if (dateKey === 'Invalid Date') {
+                    console.log('Bỏ qua item có date không hợp lệ:', item);
+                    return;
+                }
+                
+                if (!planByDate[dateKey]) {
+                    planByDate[dateKey] = {
+                        date: new Date(item.date),
+                        subjects: []
+                    };
+                }
+                planByDate[dateKey].subjects.push(item);
+            } catch (error) {
+                console.log('Lỗi xử lý date trong grouping:', error);
             }
-            planByDate[dateKey].subjects.push(item);
         });
 
         // Chuyển thành mảng và sắp xếp
@@ -437,8 +464,6 @@ class StudyPlanner {
 
         console.log('=== RENDER STUDY PLAN DEBUG ===');
         console.log('currentPlan:', this.currentPlan);
-        console.log('Type of currentPlan:', typeof this.currentPlan);
-        console.log('Is array:', Array.isArray(this.currentPlan));
 
         // KIỂM TRA DỮ LIỆU KỸ HƠN
         if (!this.currentPlan || !Array.isArray(this.currentPlan)) {
@@ -453,8 +478,6 @@ class StudyPlanner {
             return;
         }
 
-        console.log('Số ngày trong kế hoạch:', this.currentPlan.length);
-
         emptyPlan.style.display = 'none';
         container.style.display = 'block';
 
@@ -464,10 +487,25 @@ class StudyPlanner {
         for (let i = 0; i < this.currentPlan.length; i++) {
             const dayPlan = this.currentPlan[i];
             
-            // KIỂM TRA DỮ LIỆU NGÀY
+            // KIỂM TRA DỮ LIỆU NGÀY KỸ HƠN
             if (!dayPlan || !dayPlan.date) {
                 console.log('Bỏ qua dayPlan không hợp lệ tại index', i, ':', dayPlan);
                 continue;
+            }
+
+            // KIỂM TRA DATE CÓ HỢP LỆ KHÔNG
+            let dateDisplay;
+            try {
+                const dateObj = new Date(dayPlan.date);
+                if (isNaN(dateObj.getTime())) {
+                    console.log('Date không hợp lệ tại index', i, ':', dayPlan.date);
+                    dateDisplay = 'Chưa xác định';
+                } else {
+                    dateDisplay = this.formatDate(dayPlan.date);
+                }
+            } catch (error) {
+                console.log('Lỗi xử lý date tại index', i, ':', error);
+                dateDisplay = 'Chưa xác định';
             }
 
             // KIỂM TRA SUBJECTS
@@ -481,7 +519,7 @@ class StudyPlanner {
                 <div class="plan-day">
                     <div class="plan-date">
                         <i class="fas fa-calendar-day"></i>
-                        ${this.formatDate(dayPlan.date)}
+                        ${dateDisplay}
                     </div>
                     <div class="plan-subjects">
             `;
@@ -552,6 +590,39 @@ class StudyPlanner {
         return div.innerHTML;
     }
 
+    // Sửa hàm formatDate
+    formatDate(date, format = 'display') {
+        try {
+            // Kiểm tra date có hợp lệ không
+            if (!date) {
+                console.log('Date không tồn tại:', date);
+                return 'Chưa xác định';
+            }
+            
+            const d = new Date(date);
+            
+            // Kiểm tra Date object có hợp lệ không
+            if (isNaN(d.getTime())) {
+                console.log('Date không hợp lệ:', date);
+                return 'Chưa xác định';
+            }
+            
+            if (format === 'file') {
+                return d.toISOString().split('T')[0];
+            }
+            
+            // Format ngày tháng tiếng Việt
+            return d.toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch (error) {
+            console.error('Lỗi formatDate:', error, 'date:', date);
+            return 'Chưa xác định';
+        }
+    }
+
     exportToPDF() {
         if (!this.currentPlan || this.currentPlan.length === 0) {
             this.showNotification('Vui lòng tạo kế hoạch trước khi xuất PDF!', 'error');
@@ -600,7 +671,8 @@ class StudyPlanner {
             
             // Ngày học
             doc.setFont('helvetica', 'bold');
-            doc.text(`${this.formatDate(dayPlan.date)}:`, 20, yPosition);
+            const dateText = `${this.formatDate(dayPlan.date)}:`;
+            doc.text(dateText, 20, yPosition);
             yPosition += 7;
             
             // Các môn học trong ngày
@@ -866,14 +938,6 @@ class StudyPlanner {
     }
 
     // Utility Methods
-    formatDate(date, format = 'display') {
-        const d = new Date(date);
-        if (format === 'file') {
-            return d.toISOString().split('T')[0];
-        }
-        return d.toLocaleDateString('vi-VN');
-    }
-
     getDifficultyText(level) {
         const levels = {
             1: 'Dễ',
@@ -985,6 +1049,7 @@ class StudyPlanner {
 }
 
 // Initialize the application
+
 const studyPlanner = new StudyPlanner();
 
 // Make studyPlanner globally available for HTML onclick handlers
