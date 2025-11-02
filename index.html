@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>StudyPlanner — Lên kế hoạch ôn thi thông minh</title>
+  <meta name="description" content="StudyPlanner: nhập môn, ngày thi, độ khó → tự chia lịch ôn tập. Lưu đám mây, đăng nhập Google, xuất PDF, responsive." />
+  <meta name="keywords" content="ôn thi, planner, lịch học, study planner, ôn tập, sinh viên" />
+  <link rel="icon" href="assets/favicon.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- jsPDF (for export) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+
+  <!-- Firebase SDKs (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" defer></script>
+
+  <!-- Adsense: thêm đoạn code AdSense của anh vào đây khi approved -->
+  <!-- <script data-ad-client="ca-pub-XXXXXXXXXXXX" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script> -->
+
+</head>
+<body>
+  <header class="topbar">
+    <h1>StudyPlanner</h1>
+    <div class="auth" id="auth-area">
+      <button id="btn-google">Đăng nhập bằng Google</button>
+      <button id="btn-logout" class="hidden">Đăng xuất</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel panel-left">
+      <h2>Thêm môn học</h2>
+      <form id="subject-form" autocomplete="off">
+        <label>Tên môn
+          <input id="subject-name" required placeholder="Ví dụ: Toán" />
+        </label>
+        <label>Ngày thi
+          <input id="subject-date" type="date" required />
+        </label>
+        <label>Độ khó
+          <select id="subject-difficulty">
+            <option value="1">Dễ</option>
+            <option value="2" selected>Trung bình</option>
+            <option value="3">Khó</option>
+          </select>
+        </label>
+        <label>Ghi chú (tùy chọn)
+          <input id="subject-note" placeholder="Chủ đề cần ôn, chương..." />
+        </label>
+        <div class="row">
+          <button type="submit">+ Thêm môn</button>
+          <button id="generate-plan" type="button">🪄 Tạo kế hoạch ôn tập</button>
+        </div>
+      </form>
+
+      <h3>Danh sách môn</h3>
+      <ul id="subject-list" class="list"></ul>
+      <div class="small">
+        <button id="clear-all">Xóa tất cả</button>
+      </div>
+    </section>
+
+    <section class="panel panel-right">
+      <h2>Kế hoạch ôn tập</h2>
+      <div id="plan-area">
+        <ol id="plan-list" class="plan-list"></ol>
+      </div>
+
+      <div class="row actions">
+        <button id="export-pdf">⬇️ Xuất PDF</button>
+        <button id="save-cloud">💾 Lưu lên cloud</button>
+      </div>
+
+      <p class="hint">Không đăng nhập? Dữ liệu vẫn lưu cục bộ (LocalStorage).</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>© StudyPlanner · Tối ưu mobile & SEO · Free deploy</small>
+  </footer>
+
+  <script src="firebase-init.js"></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
