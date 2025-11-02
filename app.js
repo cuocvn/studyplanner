@@ -160,6 +160,16 @@ class StudyPlanner {
             return;
         }
 
+        // Check if date is in the past
+        const examDate = new Date(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (examDate < today) {
+            this.showNotification('Ngày thi không được ở trong quá khứ!', 'error');
+            return;
+        }
+
         const subject = {
             id: Date.now() + Math.random(),
             name,
@@ -279,7 +289,11 @@ class StudyPlanner {
             return;
         }
 
+        console.log('Bắt đầu tạo kế hoạch với', this.subjects.length, 'môn học');
+        
         this.currentPlan = this.createStudyPlan(this.subjects);
+        console.log('Kế hoạch đã tạo:', this.currentPlan);
+        
         this.renderStudyPlan();
         this.updateStats();
         
@@ -290,12 +304,13 @@ class StudyPlanner {
     createStudyPlan(subjects) {
         const plan = [];
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
-        // Calculate total study days needed
-        let totalDaysNeeded = 0;
+        console.log('Ngày bắt đầu:', today);
+
+        // Calculate study days needed for each subject
         const subjectRequirements = subjects.map(subject => {
             const daysNeeded = subject.difficulty * 2; // Dễ: 2 ngày, TB: 4 ngày, Khó: 6 ngày
-            totalDaysNeeded += daysNeeded;
             return {
                 ...subject,
                 daysNeeded,
@@ -304,77 +319,88 @@ class StudyPlanner {
             };
         });
 
-        // Generate study days from today to the latest exam date
+        // Find the latest exam date
         const latestDate = new Date(Math.max(...subjects.map(s => new Date(s.date).getTime())));
+        console.log('Ngày thi cuối cùng:', latestDate);
+
+        // Generate all study days from today to latest date
         const studyDays = [];
+        const currentDate = new Date(today);
         
-        for (let date = new Date(today); date <= latestDate; date.setDate(date.getDate() + 1)) {
-            // Skip weekends (optional - can be removed)
-            if (date.getDay() !== 0 && date.getDay() !== 6) {
-                studyDays.push(new Date(date));
+        while (currentDate <= latestDate) {
+            // Only include weekdays (Monday to Friday)
+            if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                studyDays.push(new Date(currentDate));
             }
+            currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Assign subjects to study days using weighted round-robin
-        let currentDayIndex = 0;
-        
-        while (subjectRequirements.some(subj => subj.daysAssigned < subj.daysNeeded) && currentDayIndex < studyDays.length) {
-            const currentDate = studyDays[currentDayIndex];
-            
-            // Find subjects that still need study days and are not overdue
+        console.log('Tổng số ngày học:', studyDays.length);
+
+        // Simple assignment algorithm
+        let dayIndex = 0;
+        const maxStudyDays = studyDays.length;
+
+        // Assign subjects to days
+        while (dayIndex < maxStudyDays) {
+            // Find subjects that still need study days
             const availableSubjects = subjectRequirements.filter(subj => 
-                subj.daysAssigned < subj.daysNeeded && subj.dueDate >= currentDate
+                subj.daysAssigned < subj.daysNeeded
             );
 
-            if (availableSubjects.length > 0) {
-                // Prioritize subjects with closer due dates and more remaining days
-                availableSubjects.sort((a, b) => {
-                    const timeDiffA = a.dueDate - currentDate;
-                    const timeDiffB = b.dueDate - currentDate;
-                    const remainingDaysA = a.daysNeeded - a.daysAssigned;
-                    const remainingDaysB = b.daysNeeded - b.daysAssigned;
-                    
-                    return (timeDiffA - timeDiffB) || (remainingDaysB - remainingDaysA);
-                });
+            if (availableSubjects.length === 0) break;
 
-                const selectedSubject = availableSubjects[0];
-                plan.push({
-                    date: new Date(currentDate),
-                    subject: selectedSubject.name,
-                    difficulty: selectedSubject.difficulty,
-                    note: selectedSubject.note || ''
-                });
+            // Sort by priority: subjects with closer due dates and more remaining days first
+            availableSubjects.sort((a, b) => {
+                // Priority 1: Subjects with closer due dates
+                const timeDiffA = a.dueDate - studyDays[dayIndex];
+                const timeDiffB = b.dueDate - studyDays[dayIndex];
+                
+                // Priority 2: Subjects with more remaining days
+                const remainingA = a.daysNeeded - a.daysAssigned;
+                const remainingB = b.daysNeeded - b.daysAssigned;
+                
+                return timeDiffA - timeDiffB || remainingB - remainingA;
+            });
 
-                selectedSubject.daysAssigned++;
-            }
-
-            currentDayIndex++;
+            const selectedSubject = availableSubjects[0];
+            
+            plan.push({
+                date: new Date(studyDays[dayIndex]),
+                subject: selectedSubject.name,
+                difficulty: selectedSubject.difficulty,
+                note: selectedSubject.note || `Buổi ${selectedSubject.daysAssigned + 1}`
+            });
+            
+            selectedSubject.daysAssigned++;
+            dayIndex++;
         }
 
-        // Group plan by date
+        console.log('Kế hoạch chi tiết:', plan);
+
+        // Group by date
         const groupedPlan = [];
-        let currentDate = null;
-        let currentDayPlan = null;
+        const planByDate = {};
 
         plan.forEach(item => {
-            const dateStr = item.date.toDateString();
-            if (dateStr !== currentDate) {
-                if (currentDayPlan) {
-                    groupedPlan.push(currentDayPlan);
-                }
-                currentDate = dateStr;
-                currentDayPlan = {
+            const dateKey = item.date.toDateString();
+            if (!planByDate[dateKey]) {
+                planByDate[dateKey] = {
                     date: new Date(item.date),
                     subjects: []
                 };
             }
-            currentDayPlan.subjects.push(item);
+            planByDate[dateKey].subjects.push(item);
         });
 
-        if (currentDayPlan) {
-            groupedPlan.push(currentDayPlan);
+        // Convert to array and sort by date
+        for (const dateKey in planByDate) {
+            groupedPlan.push(planByDate[dateKey]);
         }
 
+        groupedPlan.sort((a, b) => a.date - b.date);
+
+        console.log('Kế hoạch đã nhóm:', groupedPlan);
         return groupedPlan;
     }
 
